@@ -74,59 +74,25 @@ class DeliveryCarrier(models.Model):
 
     def kdniao_send_shipping(self, pickings):
         res = []
-        for p in pickings:
-            if not self._check_address(p.partner_id):
-                raise ValidationError("收件人信息错误：" + self.kdnniao_error_message)
-            if not self._check_address(p.company_id):
-                raise ValidationError("发件人信息错误：" + self.kdnniao_error_message)
-            eorder = {
-                'ShipperCode': p.carrier_id.kdnniao_shipper_code,
-                'OrderCode': p.name,
-                'PayType': 1,
-                'ExpType': 1,
-                'Sender': self.kdniao_format_address(p.company_id),
-                'Receiver': self.kdniao_format_address(p.partner_id),
-                "Commodity": [{'GoodsName': "其他"}]
+        kdniao_api = Kdniao(self.prod_environment, self.log_xml)
+        for picking in pickings:
+            shipping = kdniao_api.order_create(picking, self)
+            logmessage = (_("Shipment created into %s <br/> <b>Tracking Number : </b>%s") % (
+                self.name, shipping['tracking_number']))
+            picking.message_post(body=logmessage)
+            shipping_data = {
+                'exact_price': shipping['price'],
+                'tracking_number': shipping['tracking_number']
             }
-            if p.carrier_id.kdnniao_customer_name:
-                eorder['CustomerName'] = p.carrier_id.kdnniao_customer_name
-            if p.carrier_id.kdnniao_customer_pwd:
-                eorder['CustomerPwd'] = p.carrier_id.kdnniao_customer_pwd
-            kdniao_api = Kdniao(p.carrier_id.kdnniao_business_id, p.carrier_id.kdnniao_api_key,
-                                environment=p.carrier_id.prod_environment)
-
-            result = kdniao_api.order_create(json.dumps(eorder))
-            if result.status_code != 200:
-                raise UserError('请求快递鸟接口错误，status_code' + result.status_code)
-            kdniao_res = json.loads(result.text)
-            if kdniao_res['Success']:
-                res = res + [{'exact_price': p.carrier_id.fixed_price,
-                              'tracking_number': kdniao_res['Order']['LogisticCode']}]
-                # p.update({'kdniao_order_code': kdniao_res['Order']['KDNOrderCode']})
-            else:
-                raise UserError('生成电子面单失败，原因：' + kdniao_res['Reason'])
-
+            res = res + [shipping_data]
         return res
 
     def kdniao_get_tracking_link(self, pickings):
-        return False
+        return "http://baidu.com"
 
-    def kdniao_cancel_shipment(self, pickings):
-        for p in pickings:
-            kdniao_api = Kdniao(p.carrier_id.kdnniao_business_id, p.carrier_id.kdnniao_api_key,
-                                environment=p.carrier_id.prod_environment)
-            eorder = {
-                'ShipperCode': p.carrier_id.kdnniao_shipper_code,
-                'OrderCode': p.name,
-                'ExpNo': p.carrier_tracking_ref,
-            }
-            if p.carrier_id.kdnniao_customer_name:
-                eorder['CustomerName'] = p.carrier_id.kdnniao_customer_name
-            if p.carrier_id.kdnniao_customer_pwd:
-                eorder['CustomerPwd'] = p.carrier_id.kdnniao_customer_pwd
-            result = kdniao_api.order_cancel(json.dumps(eorder))
-            if result.status_code != 200:
-                raise UserError('请求快递鸟接口错误，status_code' + result.status_code)
-            kdniao_res = json.loads(result.text)
-            if not kdniao_res['Success']:
-                raise UserError('取消电子面单失败，原因：' + kdniao_res['Reason'])
+    def kdniao_cancel_shipment(self, picking):
+        kdniao_api = Kdniao(self.prod_environment, self.log_xml)
+        kdniao_api.order_cancel(picking, self)
+        picking.message_post(body=_(u"You can't cancel %s shipping without pickup date." % self.name))
+        picking.write({'carrier_tracking_ref': '',
+                       'carrier_price': 0.0})
