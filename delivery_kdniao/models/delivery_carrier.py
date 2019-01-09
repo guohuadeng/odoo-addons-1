@@ -88,7 +88,7 @@ class DeliveryCarrier(models.Model):
         return res
 
     def kdniao_get_tracking_link(self, pickings):
-        return "http://baidu.com"
+        return "/delivery_kdniao/traceback/%s/%s" % (self.kdnniao_shipper_code, pickings.carrier_tracking_ref)
 
     def kdniao_cancel_shipment(self, picking):
         kdniao_api = Kdniao(self.prod_environment, self.log_xml)
