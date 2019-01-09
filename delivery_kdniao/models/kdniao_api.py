@@ -119,8 +119,14 @@ class Kdniao(object):
             'ExpType': 1,
             'Sender': self.kdniao_format_address(picking.company_id),
             'Receiver': self.kdniao_format_address(picking.partner_id),
-            "Commodity": [{'GoodsName': "其他"}]
+            "Commodity": []
         }
+
+        for line in picking.move_line_ids_without_package:
+            goods = {'GoodsName': line.product_id.name, 'Goodsquantity': int(line.qty_done)}
+            if line.product_id.code:
+                goods['GoodsCode'] = line.product_id.code
+            request_data["Commodity"].append(goods)
 
         if carrier.kdnniao_customer_name:
             request_data['CustomerName'] = carrier.kdnniao_customer_name
