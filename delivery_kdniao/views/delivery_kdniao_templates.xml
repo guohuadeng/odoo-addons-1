@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="traceback_view" name="Traceback">
+        <t t-call="web.layout">
+            <t t-set="head">
+                <script src="/delivery_kdniao/static/src/js/KDNWidget.js"/>
+                <link rel="stylesheet" type="text/scss" href="/delivery_kdniao/static/src/css/KDNWidget.css"/>
+            </t>
+            <div id="demoID"></div>
+            <script>
+                window.onload = function () {
+                KDNWidget.run({
+                serviceType: "B",
+                expCode:"<t t-esc='shipper_code'/>",
+                expNo:"<t t-esc='carriertracking_ref'/>",
+                showType:"normal",
+                container: "demoID"
+                })
+                }
+            </script>
+        </t>
+    </template>
+</odoo>
